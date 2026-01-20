@@ -21,9 +21,8 @@ import PermissionWrapper from './Context/PermissionsWrapper'
 import { UserProvider } from './Context/UserContext'
 import AddUsers from './pages/AddUsers'
 import ImagesByEmails from './pages/ImagesByEmails'
-import FirstEmail from './pages/FirstEmail'
-import SecondEmail from './pages/SecondEmail'
-import ThirdEmail from './pages/ThirdEmail'
+import MailManagement from './pages/MailManagement'
+import EmailImages from './pages/EmailImages'
 
 
 const App = () => {
@@ -145,6 +144,14 @@ const App = () => {
                   </PermissionWrapper>
                 }
               />
+              <Route
+                path="Mail-Management"
+                element={
+                  <PermissionWrapper required='Permissions-Users'>
+                    <MailManagement />
+                  </PermissionWrapper>
+                }
+              />
             </Route>
 
             {/* Images By Emails main page */}
@@ -152,33 +159,14 @@ const App = () => {
               path="ImagesByEmails"
               element={
                 <PermissionWrapper required='ImagesByEmails'>
-                  <ImagesByEmails/>
+                  <ImagesByEmails />
                 </PermissionWrapper>
               }
             >
-              {/* Nested inside Requests */}
               <Route
-                path="1st-Email"
+                path=":email"
                 element={
-                  <PermissionWrapper required='1st-Email'>
-                    <FirstEmail />
-                  </PermissionWrapper>
-                }
-              />
-              <Route
-                path="2nd-Email"
-                element={
-                  <PermissionWrapper required='2nd-Email'>
-                    <SecondEmail />
-                  </PermissionWrapper>
-                }
-              />
-              <Route
-                path="3rd-Email"
-                element={
-                  <PermissionWrapper required='3rd-Email'>
-                    <ThirdEmail />
-                  </PermissionWrapper>
+                  <EmailImages />
                 }
               />
             </Route>

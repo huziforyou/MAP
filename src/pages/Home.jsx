@@ -21,10 +21,17 @@ const darkMapStyle = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] }
 ];
 
-const markerIcons = {
-  FirstEmail: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-  SecondEmail: "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-  ThirdEmail: "http://maps.google.com/mapfiles/ms/icons/orange-dot.png",
+const getMarkerIcon = (email) => {
+  // Simple hash to color or just random colors, or specific mapping if possible.
+  // For now, let's use a default blue dot. 
+  // Ideally we generate a color based on email string to be consistent.
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+  const hex = "00000".substring(0, 6 - c.length) + c;
+  return `http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|${hex}`;
 };
 
 const Home = () => {
@@ -47,62 +54,77 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
-  // ✅ CHANGED: Fetch images and build the URL from the database endpoint
-  const fetchPhotos = {
-    FirstEmail: async () => {
-      const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/photos/get1stEmailPhotos`);
-      return res.data.map(img => ({
-        ...img,
-        emailKey: 'FirstEmail',
-        // Use the new endpoint with the database _id
-        url: `${import.meta.env.VITE_BASE_URL}/photos/image-data/${img._id}`
-      }));
-    },
-    SecondEmail: async () => {
-      const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/photos/get2ndEmailPhotos`);
-      return res.data.map(img => ({
-        ...img,
-        emailKey: 'SecondEmail',
-        // Use the new endpoint with the database _id
-        url: `${import.meta.env.VITE_BASE_URL}/photos/image-data/${img._id}`
-      }));
-    },
-    ThirdEmail: async () => {
-      const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/photos/get3rdEmailPhotos`);
-      return res.data.map(img => ({
-        ...img,
-        emailKey: 'ThirdEmail',
-        // Use the new endpoint with the database _id
-        url: `${import.meta.env.VITE_BASE_URL}/photos/image-data/${img._id}`
-      }));
-    },
-  };
-
+  // ✅ CHANGED: Fetch allowed emails and then their images
   useEffect(() => {
     const fetchImages = async () => {
-      let all = [];
-      const permissions = [];
-      if (user?.role === 'admin') permissions.push('FirstEmail', 'SecondEmail', 'ThirdEmail');
-      else {
-        if (user?.permissions?.includes('FirstEmail')) permissions.push('FirstEmail');
-        if (user?.permissions?.includes('SecondEmail')) permissions.push('SecondEmail');
-        if (user?.permissions?.includes('ThirdEmail')) permissions.push('ThirdEmail');
-      }
-      for (const emailKey of permissions) {
-        if (selectedFilter === 'All' || selectedFilter === emailKey) {
-          const data = await fetchPhotos[emailKey]();
-          all.push(...data);
+      try {
+        // 1. Get Allowed Emails
+        const emailsRes = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/image-sources`);
+        const allowedEmails = emailsRes.data.map(e => e.email);
+
+        let emailsToFetch = [];
+
+        // 2. Filter based on permissions
+        if (user?.role === 'admin') {
+          emailsToFetch = allowedEmails;
+        } else {
+          // Check if user has permission for the SPECIFIC email
+          // (Assumes permissions are now stored as email addresses, or we support legacy for a bit if needed)
+          // If the user system still uses 'FirstEmail', this part is tricky without migrating users.
+          // But since we are moving to dynamic, let's assume permissions match emails.
+          // If not, non-admin users might see nothing until their permissions are updated.
+          emailsToFetch = allowedEmails.filter(email => user?.permissions?.includes(email));
         }
+
+        // 3. Filter based on UI selection
+        if (selectedFilter !== 'All') {
+          emailsToFetch = emailsToFetch.filter(e => e === selectedFilter);
+        }
+
+        let allImages = [];
+        // 4. Fetch images for each email
+        for (const email of emailsToFetch) {
+          const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/photos/getImages/${email}`);
+          const emailImages = res.data.photos.map(img => ({
+            ...img,
+            emailKey: email,
+            url: `${import.meta.env.VITE_BASE_URL}/photos/image-data/${img._id}`,
+            icon: getMarkerIcon(email)
+          }));
+          allImages.push(...emailImages);
+        }
+        setImages(allImages);
+
+      } catch (err) {
+        console.error("Error fetching home images", err);
       }
-      setImages(all);
     };
-    fetchImages();
+
+    if (user) {
+      fetchImages();
+    }
   }, [user, selectedFilter]);
 
-  const filters = ['All'];
-  if (user?.role === 'admin' || user?.permissions?.includes('FirstEmail')) filters.push('FirstEmail');
-  if (user?.role === 'admin' || user?.permissions?.includes('SecondEmail')) filters.push('SecondEmail');
-  if (user?.role === 'admin' || user?.permissions?.includes('ThirdEmail')) filters.push('ThirdEmail');
+  // Dynamic filters
+  const [availableFilters, setAvailableFilters] = useState(['All']);
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/image-sources`);
+        const allEmails = res.data.map(e => e.email);
+        if (user?.role === 'admin') {
+          setAvailableFilters(['All', ...allEmails]);
+        } else {
+          setAvailableFilters(['All', ...allEmails.filter(e => user?.permissions?.includes(e))]);
+        }
+      } catch (e) { console.error(e); }
+    };
+    if (user) loadFilters();
+  }, [user]);
+
+  // Removed permissions logic from here as it is handled in useEffect state
+  // const filters = ['All']; ...
 
   const heatmapData = images.map(img => new window.google.maps.LatLng(img.latitude, img.longitude));
 
@@ -115,7 +137,7 @@ const Home = () => {
           onChange={(e) => setSelectedFilter(e.target.value)}
           className="border px-3 py-1 dark:bg-zinc-800 bg-white dark:text-white text-black text-center rounded text-sm"
         >
-          {filters.map(f => <option key={f} value={f}>{f}</option>)}
+          {availableFilters.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
 
         <button
@@ -148,7 +170,7 @@ const Home = () => {
               key={img._id || index}
               position={{ lat: img.latitude, lng: img.longitude }}
               onClick={() => setSelectedImage({ ...img, zoom: false })}
-              icon={markerIcons[img.emailKey] || markerIcons.FirstEmail}
+              icon={img.icon}
             />
           ))}
 

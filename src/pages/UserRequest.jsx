@@ -37,8 +37,10 @@ const UserRequest = () => {
                         }`} to={'Approved-Users'}>Approved Users</Link>
                     <Link className={`${location.pathname.endsWith('/Denied-Users') ? 'dark:text-gray-100 text-zinc-800' : 'text-gray-500'
                         } `} to={'Denied-Users'}>Denied  Users</Link>
-                        <Link className={`${location.pathname.endsWith('/Permissions-Users') ? 'dark:text-gray-100 text-zinc-800 ' : 'text-gray-500'
-                            }`} to={'Permissions-Users'}>Users Controller</Link>
+                    <Link className={`${location.pathname.endsWith('/Permissions-Users') ? 'dark:text-gray-100 text-zinc-800 ' : 'text-gray-500'
+                        }`} to={'Permissions-Users'}>Users Controller</Link>
+                    <Link className={`${location.pathname.endsWith('/Mail-Management') ? 'dark:text-gray-100 text-zinc-800 ' : 'text-gray-500'
+                        }`} to={'Mail-Management'}>Mail Management</Link>
                 </div>
                 <button onClick={() => { reloaddisbled(); window.location.reload() }} disabled={!reload} to={location.pathname} className={`lg:flex gap-2 lg:text-lg text-sm hidden  items-center cursor-pointer ${reload ? 'dark:text-white text-gray-500' : 'dark:text-gray-500 text-gray-300'}`}>
                     <TbReload />
